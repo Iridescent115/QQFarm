@@ -38,7 +38,63 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         }
 
+        findViewById<Button>(R.id.btn_tutorial).setOnClickListener {
+            showTutorialDialog()
+        }
+
         showDisclaimerIfNeeded()
+    }
+
+    private fun showTutorialDialog() {
+        AlertDialog.Builder(this)
+            .setTitle("使用教学")
+            .setMessage(
+                """
+                一、使用前准备
+
+                1. 本工具目前只支持安卓微信端的 QQ 经典农场小程序。
+                2. 使用前需要开启悬浮窗权限，用于显示控制面板、日志和配置界面。
+                3. 使用前需要开启无障碍权限，用于执行截图识别、点击和滑动操作。
+                4. 权限开启后，点击“启动悬浮窗”，再回到微信或游戏界面使用。
+
+                二、悬浮窗按钮
+
+                开始 / 暂停：启动或暂停当前选中的脚本。
+                停止：立即停止当前脚本。
+                日志：查看脚本运行状态和识别结果。
+                配置：选择脚本，并设置脚本需要的参数或坐标。
+                退出：关闭悬浮窗。
+
+                三、自动偷菜
+
+                自动偷菜功能需要在自己的农场界面开始运行。
+
+                首次使用前，请先在悬浮窗配置界面选择“自动偷菜”，并依次抓取需要点击的位置。配置完成后，回到自己的农场界面，点击悬浮窗开始按钮运行。
+
+                大致流程：
+                1. 打开好友列表。
+                2. 识别是否存在可操作目标。
+                3. 拜访好友农场并执行对应点击。
+                4. 返回自己的农场。
+                5. 循环执行，直到手动暂停或停止。
+
+                四、自动加好友
+
+                自动加好友功能要点进微信群聊天界面之后再运行。
+
+                进入微信群聊天界面后，选择“自动加好友”，再点击悬浮窗开始按钮。脚本会在聊天记录中查找好友卡片，识别到后点击，并按流程关闭相关页面。
+
+                大致流程：
+                1. 截图识别聊天记录中的好友卡片。
+                2. 找到多个卡片时，优先点击最下面的一个。
+                3. 点击后等待页面打开。
+                4. 识别并点击关闭按钮。
+                5. 向下滑动聊天记录，继续查找下一张好友卡片。
+                6. 如果连续无法识别关闭按钮，脚本会暂停，避免持续误操作。
+                """.trimIndent()
+            )
+            .setPositiveButton("知道了", null)
+            .show()
     }
 
     private fun showDisclaimerIfNeeded() {

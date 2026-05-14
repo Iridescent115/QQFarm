@@ -2,6 +2,8 @@ package com.example.qqfarm
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.widget.Button
 import android.widget.Toast
@@ -14,7 +16,11 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val PREFS_NAME = "app_agreement"
         const val KEY_AGREED_DISCLAIMER = "agreed_disclaimer"
+        const val DISCLAIMER_COUNTDOWN_SECONDS = 10
     }
+
+    private val countdownHandler = Handler(Looper.getMainLooper())
+    private var countdownRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -39,7 +45,7 @@ class MainActivity : AppCompatActivity() {
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         if (prefs.getBoolean(KEY_AGREED_DISCLAIMER, false)) return
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("免责声明与权限说明")
             .setMessage(
                 """
@@ -64,6 +70,44 @@ class MainActivity : AppCompatActivity() {
                 finish()
             }
             .show()
+
+        startDisclaimerCountdown(dialog)
+    }
+
+    private fun startDisclaimerCountdown(dialog: AlertDialog) {
+        val agreeButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+        var remainingSeconds = DISCLAIMER_COUNTDOWN_SECONDS
+
+        val runnable = object : Runnable {
+            override fun run() {
+                if (!dialog.isShowing) return
+
+                if (remainingSeconds > 0) {
+                    agreeButton.isEnabled = false
+                    agreeButton.text = "同意并继续（${remainingSeconds}秒）"
+                    remainingSeconds--
+                    countdownHandler.postDelayed(this, 1000)
+                } else {
+                    agreeButton.text = "同意并继续"
+                    agreeButton.isEnabled = true
+                }
+            }
+        }
+
+        countdownRunnable = runnable
+        dialog.setOnDismissListener {
+            countdownHandler.removeCallbacks(runnable)
+            if (countdownRunnable == runnable) {
+                countdownRunnable = null
+            }
+        }
+        runnable.run()
+    }
+
+    override fun onDestroy() {
+        countdownRunnable?.let { countdownHandler.removeCallbacks(it) }
+        countdownRunnable = null
+        super.onDestroy()
     }
 
     private fun startFloatingService() {

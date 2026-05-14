@@ -19,6 +19,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
 import android.view.WindowManager
+import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
@@ -53,6 +54,9 @@ class FloatingWindowService : Service() {
     private var configDragging = false
     private var isConfigAdded = false
     private val coordinateTextViews = mutableMapOf<String, TextView>()
+    private val scriptOptionTextViews = mutableMapOf<AutomationScript, TextView>()
+    private var stealVegetableConfigView: View? = null
+    private var addFriendConfigView: View? = null
 
     private var isRunning = false
 
@@ -101,11 +105,11 @@ class FloatingWindowService : Service() {
 
         pillView = LayoutInflater.from(this).inflate(R.layout.floating_window, null)
 
-        val btnStartPause = pillView.findViewById<TextView>(R.id.btn_start_pause)
-        val btnStop       = pillView.findViewById<TextView>(R.id.btn_stop)
-        val btnLog        = pillView.findViewById<TextView>(R.id.btn_log)
-        val btnConfig     = pillView.findViewById<TextView>(R.id.btn_config_float)
-        val btnExit       = pillView.findViewById<TextView>(R.id.btn_exit)
+        val btnStartPause = pillView.findViewById<ImageButton>(R.id.btn_start_pause)
+        val btnStop       = pillView.findViewById<ImageButton>(R.id.btn_stop)
+        val btnLog        = pillView.findViewById<ImageButton>(R.id.btn_log)
+        val btnConfig     = pillView.findViewById<ImageButton>(R.id.btn_config_float)
+        val btnExit       = pillView.findViewById<ImageButton>(R.id.btn_exit)
 
         btnStartPause.setOnClickListener {
             if (!AutoClickService.isConnected()) {
@@ -114,20 +118,20 @@ class FloatingWindowService : Service() {
             }
             isRunning = !isRunning
             if (isRunning) {
-                btnStartPause.text = "⏸"
-                btnStartPause.setTextColor(Color.parseColor("#FFC107"))
+                btnStartPause.setImageResource(R.drawable.ic_pause_24)
+                tintIcon(btnStartPause, "#FFC107")
                 AutoClickService.instance?.startAutoClick()
             } else {
-                btnStartPause.text = "▶"
-                btnStartPause.setTextColor(Color.parseColor("#4CAF50"))
+                btnStartPause.setImageResource(R.drawable.ic_play_24)
+                tintIcon(btnStartPause, "#4CAF50")
                 AutoClickService.instance?.stopAutoClick()
             }
         }
 
         btnStop.setOnClickListener {
             isRunning = false
-            btnStartPause.text = "▶"
-            btnStartPause.setTextColor(Color.parseColor("#4CAF50"))
+            btnStartPause.setImageResource(R.drawable.ic_play_24)
+            tintIcon(btnStartPause, "#4CAF50")
             AutoClickService.instance?.stopAutoClick()
             Logger.log("⏹ 已停止")
         }
@@ -168,6 +172,10 @@ class FloatingWindowService : Service() {
         }
 
         windowManager.addView(pillView, pillParams)
+    }
+
+    private fun tintIcon(button: ImageButton, color: String) {
+        button.imageTintList = ColorStateList.valueOf(Color.parseColor(color))
     }
 
     private fun createLogWindow() {
@@ -228,8 +236,7 @@ class FloatingWindowService : Service() {
             windowManager.addView(logView, logParams)
             isLogAdded = true
         }
-        pillView.findViewById<TextView>(R.id.btn_log)
-            .setTextColor(Color.parseColor("#42A5F5"))
+        tintIcon(pillView.findViewById(R.id.btn_log), "#42A5F5")
     }
 
     private fun hideLogWindow() {
@@ -237,8 +244,7 @@ class FloatingWindowService : Service() {
             windowManager.removeView(logView)
             isLogAdded = false
         }
-        pillView.findViewById<TextView>(R.id.btn_log)
-            .setTextColor(Color.parseColor("#90CAF9"))
+        tintIcon(pillView.findViewById(R.id.btn_log), "#90CAF9")
     }
 
     private fun createConfigWindow() {
@@ -267,7 +273,7 @@ class FloatingWindowService : Service() {
         }
 
         val title = TextView(this).apply {
-            text = "坐标配置"
+            text = "脚本配置"
             setTextColor(Color.parseColor("#CE93D8"))
             textSize = 13f
             setTypeface(typeface, Typeface.BOLD)
@@ -285,12 +291,17 @@ class FloatingWindowService : Service() {
 
         header.addView(title)
         header.addView(close)
-        root.addView(header, LinearLayout.LayoutParams(320.dp, LinearLayout.LayoutParams.WRAP_CONTENT))
+        root.addView(header, LinearLayout.LayoutParams(340.dp, LinearLayout.LayoutParams.WRAP_CONTENT))
 
-        coordinateTextViews.clear()
-        CoordinateConfig.points.forEach { point ->
-            root.addView(createConfigRow(point))
-        }
+        scriptOptionTextViews.clear()
+        root.addView(createSectionTitle("功能选择"))
+        root.addView(createScriptSelector())
+
+        stealVegetableConfigView = createStealVegetableConfigArea()
+        root.addView(stealVegetableConfigView)
+
+        addFriendConfigView = createAddFriendConfigArea()
+        root.addView(addFriendConfigView)
 
         header.setOnTouchListener { _, event ->
             when (event.action) {
@@ -317,7 +328,70 @@ class FloatingWindowService : Service() {
         }
 
         configView = root
+        refreshScriptSelection()
         refreshConfigCoordinates()
+    }
+
+    private fun createSectionTitle(text: String): View {
+        return TextView(this).apply {
+            this.text = text
+            setTextColor(Color.parseColor("#FFC107"))
+            textSize = 12f
+            setTypeface(typeface, Typeface.BOLD)
+            setPadding(12.dp, 10.dp, 12.dp, 4.dp)
+        }
+    }
+
+    private fun createScriptSelector(): View {
+        val row = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(12.dp, 4.dp, 12.dp, 8.dp)
+        }
+
+        AutomationScript.entries.forEach { script ->
+            val option = TextView(this).apply {
+                text = script.label
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setPadding(12.dp, 7.dp, 12.dp, 7.dp)
+                layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f).apply {
+                    marginEnd = if (script == AutomationScript.STEAL_VEGETABLE) 8.dp else 0
+                }
+                setOnClickListener {
+                    AutomationScriptConfig.saveSelected(this@FloatingWindowService, script)
+                    Logger.log("已选择功能：${script.label}")
+                    refreshScriptSelection()
+                }
+            }
+            scriptOptionTextViews[script] = option
+            row.addView(option)
+        }
+
+        return row
+    }
+
+    private fun createStealVegetableConfigArea(): View {
+        val area = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        area.addView(createSectionTitle("自动偷菜配置"))
+        coordinateTextViews.clear()
+        CoordinateConfig.points.forEach { point ->
+            area.addView(createConfigRow(point))
+        }
+        return area
+    }
+
+    private fun createAddFriendConfigArea(): View {
+        val area = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        area.addView(createSectionTitle("自动加好友配置"))
+        area.addView(createAddFriendPlaceholder())
+        return area
     }
 
     private fun createConfigRow(point: ClickPoint): View {
@@ -357,6 +431,32 @@ class FloatingWindowService : Service() {
         return row
     }
 
+    private fun createAddFriendPlaceholder(): View {
+        return TextView(this).apply {
+            text = "自动加好友的配置项待补充"
+            setTextColor(Color.parseColor("#BDBDBD"))
+            textSize = 12f
+            setPadding(12.dp, 7.dp, 12.dp, 12.dp)
+        }
+    }
+
+    private fun refreshScriptSelection() {
+        val selected = AutomationScriptConfig.loadSelected(this)
+        scriptOptionTextViews.forEach { (script, textView) ->
+            if (script == selected) {
+                textView.setTextColor(Color.parseColor("#212121"))
+                textView.setBackgroundColor(Color.parseColor("#FFC107"))
+            } else {
+                textView.setTextColor(Color.WHITE)
+                textView.setBackgroundColor(Color.parseColor("#44333333"))
+            }
+        }
+        stealVegetableConfigView?.visibility =
+            if (selected == AutomationScript.STEAL_VEGETABLE) View.VISIBLE else View.GONE
+        addFriendConfigView?.visibility =
+            if (selected == AutomationScript.ADD_FRIEND) View.VISIBLE else View.GONE
+    }
+
     private fun refreshConfigCoordinates() {
         coordinateTextViews.forEach { (key, textView) ->
             val (x, y) = CoordinateConfig.loadPoint(this, key)
@@ -382,8 +482,7 @@ class FloatingWindowService : Service() {
             windowManager.addView(configView, configParams)
             isConfigAdded = true
         }
-        pillView.findViewById<TextView>(R.id.btn_config_float)
-            .setTextColor(Color.parseColor("#E1BEE7"))
+        tintIcon(pillView.findViewById(R.id.btn_config_float), "#E1BEE7")
     }
 
     private fun hideConfigWindow() {
@@ -392,8 +491,7 @@ class FloatingWindowService : Service() {
             isConfigAdded = false
         }
         if (::pillView.isInitialized) {
-            pillView.findViewById<TextView>(R.id.btn_config_float)
-                .setTextColor(Color.parseColor("#CE93D8"))
+            tintIcon(pillView.findViewById(R.id.btn_config_float), "#CE93D8")
         }
     }
 

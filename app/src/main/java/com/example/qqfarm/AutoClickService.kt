@@ -21,11 +21,6 @@ class AutoClickService : AccessibilityService() {
     private val scope = CoroutineScope(Dispatchers.Main + SupervisorJob())
     private var scriptJob: Job? = null
 
-    private val btnOpenFriends  = 1098f to 2566f
-    private val btnVisitFirst   = 1093f to 1177f
-    private val btnCloseFriends = 1169f to 651f
-    private val btnGoHome       = 1164f to 2127f
-
     override fun onServiceConnected() {
         instance = this
     }
@@ -63,9 +58,11 @@ class AutoClickService : AccessibilityService() {
 
         while (currentCoroutineContext().isActive) {
             try {
+                val coordinates = CoordinateConfig.loadAll(this)
+
                 // 步骤 1
                 Logger.log("步骤1: 点击打开好友列表")
-                click(btnOpenFriends)
+                click(coordinates.openFriends)
 
                 // 步骤 2
                 Logger.log("步骤2: 等待 0.8 秒")
@@ -79,14 +76,14 @@ class AutoClickService : AccessibilityService() {
 
                 if (!result1.found) {
                     Logger.log("未识别到 hand_1，关闭好友列表回家")
-                    click(btnCloseFriends)
+                    click(coordinates.closeFriends)
                     delay(1000)
                     continue
                 }
 
                 // 步骤 4
                 Logger.log("步骤4: 拜访第一个好友")
-                click(btnVisitFirst)
+                click(coordinates.visitFirst)
                 delay(500)
 
                 Logger.log("步骤4: 截图识别 hand_2...")
@@ -103,7 +100,7 @@ class AutoClickService : AccessibilityService() {
                 // 步骤 5
                 delay(500)
                 Logger.log("步骤5: 返回自己家")
-                click(btnGoHome)
+                click(coordinates.goHome)
 
                 delay(1000)
             } catch (e: CancellationException) {

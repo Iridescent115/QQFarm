@@ -1,12 +1,12 @@
 package com.example.qqfarm
 
 import android.content.Intent
-import androidx.core.net.toUri
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Button
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.net.toUri
 
 class MainActivity : AppCompatActivity() {
 
@@ -14,8 +14,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val btnStart = findViewById<Button>(R.id.btn_launch)
-        btnStart.setOnClickListener {
+        findViewById<Button>(R.id.btn_launch).setOnClickListener {
             if (Settings.canDrawOverlays(this)) {
                 startFloatingService()
             } else {
@@ -25,15 +24,6 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btn_accessibility).setOnClickListener {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-        }
-    }
-
-    override fun onResume() {
-        super.onResume()
-        // 从权限设置页返回后，如果已授权则自动启动
-        if (Settings.canDrawOverlays(this)) {
-            val btnStart = findViewById<Button>(R.id.btn_launch)
-            btnStart.isEnabled = true
         }
     }
 
